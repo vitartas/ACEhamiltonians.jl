@@ -279,6 +279,8 @@ function fit!(
         images = ndims(matrix) == 2 ? nothing : load_cell_translations(system)
         
         # Loop over the on site bases and collect the appropriate data
+        # NOTE: potential for parallelisation, but would have to share the matrix
+        # otherwise too much memory would be consumed
         for basis in values(model.on_site_submodels)
             data_set = get_dataset(matrix, atoms, basis, model.basis_definition, images;
                 tolerance=tolerance)
@@ -329,6 +331,8 @@ function fit!(
     model::Model, fitting_data; refit::Bool=false, solver="LSQR")
 
     @debug "Fitting off site bases:"
+    # NOTE: Looks like a good place for parallelisation
+    # but not ideal if n_threads > n_models
     for (id, basis) in model.off_site_submodels
         if !haskey(fitting_data, id)
             @debug "Skipping $(id): no fitting data provided"
