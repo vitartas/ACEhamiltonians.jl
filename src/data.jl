@@ -706,6 +706,10 @@ function _locate_and_get_sub_blocks(matrix::AbstractArray{T, 3}, z_1, z_2, s_i, 
         block_idxs = filter_upper_idxs(block_idxs) 
     end
 
+    # NOTE: at this point block_idxs seems to be a 3xN array where N is the number of (i,j) pairs.
+    # Contains (j,i) and (i,i)(only if differing unit cells),
+    # (j,i) filtered out if sᵢ == sⱼ.
+
     return get_sub_blocks(matrix, block_idxs, s_i, s_j, atoms, basis_def), block_idxs
 end
 

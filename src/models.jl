@@ -81,6 +81,7 @@ struct Model
                 for (n₁, ℓ₁) in enumerate(shellsᵢ), (n₂, ℓ₂) in enumerate(shellsⱼ)
 
                     # Skip symmetrically equivalent interactions. 
+                    # NOTE: line below ensures only sp model is constructed (no ps)
                     homo_atomic && n₁ > n₂ && continue
                     
                     if homo_atomic
@@ -98,10 +99,16 @@ struct Model
                     ace_basis = ace_basis_off( # Off-site bases
                         ℓ₁, ℓ₂, off_site_parameters[id]...; species = species)
                     
+                    # NOTE: sp_ij ← 1÷2(sp_ij + ps_ij^T), but not sure if ps_ij or ps_ji.
+                    # It seems to me that ps_ij would lead to the same descriptor.
+                    # This is not true only if somehow the basis is different in the two cases.
                     @static if DUAL_BASIS_MODEL
+                        # Only a single model for e.g. pp_off with non-hermitian descriptors
+                        # ⟹ guaranteed to not be hermitian
                         if homo_atomic && n₁ == n₂
                             off_sites[(zᵢ, zⱼ, n₁, n₂)] = AHSubModel(ace_basis, id)
                         else
+                            # NOTE: construct ps basis functions
                             ace_basis_i = ace_basis_off(
                                 ℓ₂, ℓ₁, off_site_parameters[(zⱼ, zᵢ, n₂, n₁)]...)
                             off_sites[(zᵢ, zⱼ, n₁, n₂)] = AHSubModel(ace_basis, ace_basis_i, id)

@@ -288,6 +288,7 @@ function on_site_ace_basis(ℓ₁::I, ℓ₂::I, ν::I, deg::I, e_cutₒᵤₜ::
           Species1PBasis(species) * RnYlm_1pbasis(maxdeg=deg, r0=r0, rcut=e_cutₒᵤₜ),
           SimpleSparseBasis(ν, deg))
     else
+        # NOTE: I'm not sure whether this ever gets called
         return SymmetricBasis(
             SphericalMatrix(ℓ₁, ℓ₂; T=ComplexF64),
             RnYlm_1pbasis(maxdeg=deg, r0=r0, rcut=e_cutₒᵤₜ),
@@ -314,6 +315,7 @@ function _off_site_ace_basis_no_sym(ℓ₁::I, ℓ₂::I, ν::I, deg::I, b_cut::
 
     # The basis upon which the above entities act. Note that the internal cutoff "rin" must
     # be set to 0.0 to allow for atoms a the bond's midpoint to be observed. 
+    # NOTE: cutoff_env is a cutoff that does not depend on λ
     RnYlm = RnYlm_1pbasis(
         maxdeg=deg, rcut=cutoff_env(env),
         trans=IdTransform(), rin=0.0)
@@ -450,6 +452,11 @@ julia> off_site_sym_basis = SymmetricBasis(
     - Refactoring may improve performance.
 
 """
+# NOTE: as far as I understand filtering for max_degree (deg) happens later,
+# but this function forces additional filtering before such that individually
+# indices n and l would not be large in a 1 particle basis.
+# I guess could have something like n_array = [10, 1, 1], l_list = [1, 1, 1]
+# which we would want to filter.
 function _filter_offsite_be(indices, max_degree, λ_n=.5, λ_l=.5)
     if length(indices) == 0; return false; end 
     deg_n, deg_l = ceil(Int, max_degree * λ_n), ceil(Int, max_degree * λ_l)

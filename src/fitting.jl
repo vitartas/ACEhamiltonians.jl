@@ -62,7 +62,8 @@ function _preprocessY(Y)
 end
 
 
-function solve_ls(A, Y, λ, Γ, solver = "LSQR"; niter = 10, inner_tol = 1e-3)
+# NOTE: Changed the number of iterations
+function solve_ls(A, Y, λ, Γ, solver = "LSQR"; niter = 100, inner_tol = 1e-3)
     # Note; this function was copied over from the original ACEhamiltonians/fit.jl file.
 
     A = _preprocessA(A)
@@ -136,7 +137,9 @@ function _assemble_ls(basis::SymmetricBasis, data::T, enable_mean::Bool=false) w
     # Nᵢ×Nⱼ is the sub-block shape; i.e. 3×3 for pp interactions. This may be refactored
     # at a later data if this layout is not found to be strictly necessary.
     cfg = ACEConfig.(data.states)
+    # NOTE: evaluate. seems to not break stuff as long as m.c ∈ ℝ¹ = 1
     Aval = evaluate.(Ref(basis), cfg)
+    # NOTE: why is _evaluate_real needed here?
     A = permutedims(reduce(hcat, _evaluate_real.(Aval)), (2, 1))
     
     Y = [data.values[:, :, i] for i in 1:n₃]
@@ -186,6 +189,10 @@ function fit!(submodel::T₁, data::T₂; enable_mean::Bool=false, λ=1E-7, solv
 
     submodel.coefficients .= collect(solve_ls(Φ, Y, λ, Γ, solver))
 
+    # NOTE: From the looks of it ps_ij is evaluated and fitted here.
+    # As far as I understand, to evaluate ps_ji instead, we would need to define
+    # a cyllindrical envelope with λ = 1.0 instead of λ = 0.0,
+    # such that for basis and basis_i the expansion points would be flipped.
     @static if DUAL_BASIS_MODEL
         if T₁<:AnisoSubModel
             Γ = Diagonal(scaling(submodel.basis_i, 2))
@@ -331,6 +338,9 @@ function fit!(
             @debug "Skipping $(id): fitting dataset is empty"
         else
             @debug "Fitting $(id): using $(length(fitting_data[id])) fitting points"
+            # NOTE: each subblock is fitted separately, but some of them have the same basis functions,
+            # which means if evaluations are not cached, then we end up evaluating the same basis functions
+            # multiple times
             fit!(basis, fitting_data[id]; solver = solver)
         end    
     end

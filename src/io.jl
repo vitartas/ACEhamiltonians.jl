@@ -127,6 +127,7 @@ _clean_bool(bool::Vector{<:Integer}) = convert(Vector{Bool}, bool)
 _clean_bool(bool) = bool
 
 
+# NOTE: Seems to only affect fractional coordinates which are strictly above 0.5
 function _recentre!(x, l, l_inv)
     x[:] = l_inv' * x .- 1E-8
     x[:] = l' * (x - round.(x) .+ 1E-8)

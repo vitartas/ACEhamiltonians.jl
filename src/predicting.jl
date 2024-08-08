@@ -126,17 +126,26 @@ function predict!(values::AbstractMatrix, submodel::T, state::Vector{S}) where {
         # basis on it to predict the associated sub-block.  
         A = evaluate(submodel.basis, ACEConfig(state))
         B = _evaluate_real(A)
+        # NOTE: could submodel.mean be used as an intercept value here?
+        # Could potentially use atomic Hamiltonians for on-site blocks
         values .= (submodel.coefficients' * B) + submodel.mean
 
         @static if DUAL_BASIS_MODEL
             if T<: AnisoSubModel
+                # NOTE: during prediction p_ji is evaluated instead of p_ij (state reflection).
+                # This is subtle, because the cutoff is still centered about i.
+                # Also, states do not seem to be reflected during the fitting stage when evaluating
+                # the dual basis.
                 A = evaluate(submodel.basis_i, ACEConfig(reflect.(state)))
                 B = _evaluate_real(A)
+                # NOTE: sp_ij ← 1÷2(sp_ij + ps_ji^T)
                 values .= (values + ((submodel.coefficients_i' * B) + submodel.mean_i)') / 2.0
             elseif !ison(submodel) && (submodel.id[1] == submodel.id[2]) && (submodel.id[3] == submodel.id[4])
                 # If the dual basis model is being used then it is assumed that the symmetry
                 # issue has not been resolved thus an additional symmetrisation operation is
                 # required.
+                # NOTE: pp_ij ← 1÷2(pp_ij + pp_ji^T), even though this was not used in fitting.
+                # Also, the reflection has the same cutoff issue as above.
                 A = evaluate(submodel.basis, ACEConfig(reflect.(state)))
                 B = _evaluate_real(A)
                 values .= (values + ((submodel.coefficients' * B) + submodel.mean)') / 2.0
@@ -219,6 +228,7 @@ function _predict(model, atoms, cell_indices)
     # Todo:-
     #   - use symmetry to prevent having to compute data for cells reflected
     #     cell pairs; i.e. [ 0,  0,  1] & [ 0,  0, -1]
+    # NOTE: potential performance issue above
     #   - Setting the on-sites to an identity should be determined by the model
     #     rather than just assuming that the user always wants on-site overlap
     #     blocks to be identity matrices.
@@ -227,12 +237,14 @@ function _predict(model, atoms, cell_indices)
     n_orbs = number_of_orbitals(atoms, basis_def)
 
     # Matrix into which the final results will be placed
+    # NOTE: describes matrix shape based on cell indices
     matrix = zeros(n_orbs, n_orbs, size(cell_indices, 2))
     
     # Mirror index map array required by `_reflect_block_idxs!`
     mirror_idxs = _mirror_idxs(cell_indices)
 
     # The on-site blocks of overlap matrices are approximated as identity matrix.
+    # NOTE: this forces to use atom-orthogonalised basis set.
     if model.label ≡ "S"
         matrix[1:n_orbs+1:n_orbs^2] .= 1.0
     end
@@ -263,12 +275,18 @@ function _predict(model, atoms, cell_indices)
                 off_blockᵢ = filter_upper_idxs(off_blockᵢ)
             end
 
+            # NOTE: up to this point block_idxs are constructed in the usual way (as in fitting)
+
             off_site_states = _get_states( # Build states for the off-site atom-blocks
                 off_blockᵢ, atoms, envelope(basis_off), cell_indices)
             
             # Don't try to compute off-site interactions if none exist
             if length(off_site_states) > 0
                 let values = predict(basis_off, off_site_states) # Predict off-site sub-blocks
+                    # NOTE: values is a shape of a subblock with a depth equal to the number of predicted
+                    # atom pairs, i.e. block_idxs
+                    # NOTE: set_sub_blocks! sets values in the Hamiltonian the same way as in fitting,
+                    # i.e. the rest of the Hamiltonian is filled using Hermicity.
                     set_sub_blocks!( # Assign off-site sub-blocks to the matrix
                         matrix, values, off_blockᵢ, shellᵢ, shellⱼ, atoms, basis_def)
 
@@ -277,6 +295,7 @@ function _predict(model, atoms, cell_indices)
                     values = permutedims(values, (2, 1, 3))
                     set_sub_blocks!(  # Assign data to symmetrically equivalent blocks
                         matrix, values, off_blockᵢ, shellⱼ, shellᵢ, atoms, basis_def)
+                    # NOTE: ⟹ the predicted real-space matrix should be properly Hermitian
                 end
             end
 

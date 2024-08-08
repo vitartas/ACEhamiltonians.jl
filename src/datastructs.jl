@@ -394,6 +394,12 @@ function get_dataset(
     end
 
     # Locate and gather the sub-blocks correspond the interaction associated with `basis`  
+    # NOTE: this is done for each submodel, could this be bad for performance?
+    # NOTE: For sp model, does that contain:
+    #    - {sp_ij} YES
+    #    - {ps_ij} NO
+    #    - {sp_ji} YES
+    #    - {ps_ji} NO
     blocks, block_idxs = locate_and_get_sub_blocks(matrix, submodel.id..., atoms, basis_def; focus=focus, no_reduce=no_reduce)
 
     if !isnothing(focus)

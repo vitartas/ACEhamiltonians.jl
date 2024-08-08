@@ -145,12 +145,14 @@ of the bond; i.e. `envelope.λ≡0`.
 """
 function reflect(state::T) where T<:BondState
     @static if BOND_ORIGIN_AT_MIDPOINT
+        # NOTE: this reflection seems to only change r_ij to r_ji
         if state.bond
             return T(state.mu, state.mu_j, state.mu_i, -state.rr, -state.rr0, true)
         else
             return T(state.mu, state.mu_j, state.mu_i, state.rr, -state.rr0, false)
         end
     else
+        # NOTE: however, not sure why this reflection is needed
         if state.bond
             return T(state.mu, state.mu_j, state.mu_i, -state.rr, -state.rr0, true)
         else
@@ -183,6 +185,9 @@ Construct a state representing the environment about atom `i`.
 """
 function get_state(i::Integer, atoms::Atoms; r::AbstractFloat=16.0)
     # Construct the neighbour list (this is cached so speed is not an issue)
+    # NOTE: I guess what is meant by caching here is that as we go over i's, we need to
+    # generate a neighbour list only for the first one, for other i's pair_list is cached
+    # NOTE: takes in r, so should be already filtered?
     pair_list = JuLIP.neighbourlist(atoms, r; fixcell=false)
 
     # Extract environment about each relevant atom from the pair list. These will be tuples
@@ -255,6 +260,7 @@ function get_state(
 
     # Get the bond vector between atoms i & j; where i is in the origin cell & j resides
     # in either i) closest periodic image, or ii) that specified by `image` if provided.
+    # NOTE: not sure when this would be used, at least during fitting the image is supplied
     if isnothing(image)
         # Identify the shortest i→j vector account for PBC.
         idx = _locate_minimum_image(j, idxs, vecs)
@@ -306,6 +312,7 @@ function get_state(
     @views n = sum(mask) + 1
     @views states[2:n] = states[2:end][mask]
     
+    # NOTE: returns a list of BondState objects within a cylindrical cutoff
     return states[1:n]
 
 end
