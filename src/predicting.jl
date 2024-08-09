@@ -290,7 +290,14 @@ function _predict(model, atoms, cell_indices)
                     set_sub_blocks!( # Assign off-site sub-blocks to the matrix
                         matrix, values, off_blockᵢ, shellᵢ, shellⱼ, atoms, basis_def)
 
-                    
+                    # NOTE: quite subtle for same interaction on-diagonal blocks, such as pp:
+                    # here we want to write information to missing gaps based on hermicity,
+                    # however same interaction on-diagonal blocks such as pp are already predicted on both.
+                    # As the descriptors are not hermitian, right now the hermicity is not satisfied for
+                    # those blocks. But after overwriting it should become hermitian:
+                    # suppose you have two mirror images, one of them sends its transpose to the other
+                    # (overwriting the non-symmetric pp block), and that one sends the transpose back,
+                    # which leaves the first mirror image unaffected.
                     _reflect_block_idxs!(off_blockᵢ, mirror_idxs)
                     values = permutedims(values, (2, 1, 3))
                     set_sub_blocks!(  # Assign data to symmetrically equivalent blocks
