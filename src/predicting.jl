@@ -320,6 +320,10 @@ function _predict(model, atoms, cell_indices)
                         set_sub_blocks!( # Assign on-site sub-blocks to the matrix
                             matrix, values, on_blockᵢ, shellᵢ, shellⱼ, atoms, basis_def)
                         
+                        # NOTE: again think about what happens for pp blocks:
+                        # we have no mirror images now, only the first image. It overwrites
+                        # its diagonal pp block with the transpose of pp. This would not affect it
+                        # if pp block was hermitian. Is it? Otherwise the 1st image should not be hermitian.
                         values = permutedims(values, (2, 1, 3))
                         set_sub_blocks!(  # Assign data to the symmetrically equivalent blocks
                             matrix, values, on_blockᵢ, shellⱼ, shellᵢ, atoms, basis_def)
