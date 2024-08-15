@@ -206,6 +206,7 @@ function load_basis_set_definition(src::Group)
     src = src["Info/Basis"]
     # Basis set definition is stored as a series of vector datasets with names which
     # correspond the associated atomic number. 
+    # NOTE: Looks like only ℓ is actually read
     return BasisDef{Int}(parse(Int, k) => read(v)[2, :] for (k, v) in zip(keys(src), src))
 end
 
