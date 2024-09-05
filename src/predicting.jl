@@ -136,6 +136,8 @@ function predict!(values::AbstractMatrix, submodel::T, state::Vector{S}) where {
                 # This is subtle, because the cutoff is still centered about i.
                 # Also, states do not seem to be reflected during the fitting stage when evaluating
                 # the dual basis.
+                # UPDATE: adjoint(data) reflects pair indices, which means
+                # the sentence before is not correct.
                 A = evaluate(submodel.basis_i, ACEConfig(reflect.(state)))
                 B = _evaluate_real(A)
                 # NOTE: sp_ij ← 1÷2(sp_ij + ps_ji^T)

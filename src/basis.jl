@@ -306,6 +306,8 @@ function _off_site_ace_basis_no_sym(ℓ₁::I, ℓ₂::I, ν::I, deg::I, b_cut::
     @static if BOND_ORIGIN_AT_MIDPOINT
         env = CylindricalBondEnvelope(b_cut, e_cutₒᵤₜ, e_cutₒᵤₜ, floppy=false, λ=0.0)
     else
+        # NOTE: how does λ define the expansion point? Based on cat2cyl()
+        # it seems like λ = 0.5 corresponds to the centre of the bond.
         env = CylindricalBondEnvelope(b_cut, e_cutₒᵤₜ, e_cutₒᵤₜ, floppy=false, λ=0.5)
     end
     

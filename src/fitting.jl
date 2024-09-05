@@ -139,7 +139,6 @@ function _assemble_ls(basis::SymmetricBasis, data::T, enable_mean::Bool=false) w
     cfg = ACEConfig.(data.states)
     # NOTE: evaluate. seems to not break stuff as long as m.c ∈ ℝ¹ = 1
     Aval = evaluate.(Ref(basis), cfg)
-    # NOTE: why is _evaluate_real needed here?
     A = permutedims(reduce(hcat, _evaluate_real.(Aval)), (2, 1))
     
     Y = [data.values[:, :, i] for i in 1:n₃]
@@ -193,6 +192,7 @@ function fit!(submodel::T₁, data::T₂; enable_mean::Bool=false, λ=1E-7, solv
     # As far as I understand, to evaluate ps_ji instead, we would need to define
     # a cyllindrical envelope with λ = 1.0 instead of λ = 0.0,
     # such that for basis and basis_i the expansion points would be flipped.
+    # UPDATE: adjoint(data) flips the pair indices, which means ps_ji is fitted.
     @static if DUAL_BASIS_MODEL
         if T₁<:AnisoSubModel
             Γ = Diagonal(scaling(submodel.basis_i, 2))
