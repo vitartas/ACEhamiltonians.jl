@@ -58,11 +58,12 @@ blocks and is hence called SubModel
 - `mean::Matrix`:
 
 """
-struct SubModel{T₁<:SymmetricBasis, T₂, T₃, T₄} <: AHSubModel
+struct SubModel{T₁<:SymmetricBasis, T₂, T₃, T₄, T₅} <: AHSubModel
     basis::T₁
     id::T₂
     coefficients::T₃
     mean::T₄
+    fit_results::T₅
 
     function SubModel(basis, id)
         t = ACE.valtype(basis)
@@ -71,7 +72,7 @@ struct SubModel{T₁<:SymmetricBasis, T₂, T₃, T₄} <: AHSubModel
     end
 
     function SubModel(basis::T₁, id::T₂, coefficients::T₃, mean::T₄) where {T₁, T₂, T₃, T₄}
-        new{T₁, T₂, T₃, T₄}(basis, id, coefficients, mean)
+        new{T₁, T₂, T₃, T₄}(basis, id, coefficients, mean, Dict())
     end
 
 end
@@ -90,7 +91,7 @@ Another linear ACE model for modelling symmetry variant interactions.
 - `mean_i::Matrix`:
 
 """
-struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T₅, T₆, T₇} <: AHSubModel
+struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T₅, T₆, T₇, T₈, T₉} <: AHSubModel
     basis::T₁
     basis_i::T₂
     id::T₃
@@ -98,17 +99,19 @@ struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T�
     coefficients_i::T₅
     mean::T₆
     mean_i::T₇
+    fit_results::T₈
+    fit_results_i::T₉
 
     function AnisoSubModel(basis, basis_i, id)
         t₁, t₂ = ACE.valtype(basis), ACE.valtype(basis_i)
         F = real(t₁.parameters[5])
         AnisoSubModel(
             basis, basis_i,  id, zeros(F, length(basis)), zeros(F, length(basis_i)),
-            zeros(F, size(zero(t₁))), zeros(F, size(zero(t₂))))
+            zeros(F, size(zero(t₁))), zeros(F, size(zero(t₂))), Dict(), Dict())
     end
 
     function AnisoSubModel(basis::T₁, basis_i::T₂, id::T₃, coefficients::T₄, coefficients_i::T₅, mean::T₆, mean_i::T₇) where {T₁, T₂, T₃, T₄, T₅, T₆, T₇}
-        new{T₁, T₂, T₃, T₄, T₅, T₆, T₇}(basis, basis_i,  id, coefficients, coefficients_i, mean, mean_i)
+        new{T₁, T₂, T₃, T₄, T₅, T₆, T₇}(basis, basis_i,  id, coefficients, coefficients_i, mean, mean_i, Dict(), Dict())
     end
 end
 
@@ -222,8 +225,8 @@ function write_dict(submodel::T, hash_basis=false) where T<:SubModel
         "basis"=>hash_basis ? string(hash(submodel.basis)) : write_dict(submodel.basis),
         "id"=>submodel.id,
         "coefficients"=>write_dict(submodel.coefficients),
-        "mean"=>write_dict(submodel.mean))
-
+        "mean"=>write_dict(submodel.mean)),
+        "fit_results"=>submodel.fit_results
 end
 
 
