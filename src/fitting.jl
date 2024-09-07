@@ -1,6 +1,6 @@
 module Fitting
 using HDF5, ACE, ACEbase, ACEhamiltonians, StaticArrays, Statistics, LinearAlgebra, SparseArrays, IterativeSolvers
-using ACEfit: linear_solve, SKLEARN_ARD, SKLEARN_BRR
+using ACEfit: solve, SKLEARN_ARD, SKLEARN_BRR, BLR
 using HDF5: Group
 using JuLIP: Atoms
 using ACE: ACEConfig, evaluate, scaling, AbstractState, SymmetricBasis
@@ -60,18 +60,51 @@ function _preprocessY(Y)
     return real(Y_temp)
 end
 
+"""
+Apply a preprocessing step to the data based to the solver used.
+TODO: merge with _preprocessA or rename one of the functions
+"""
+function preprocess(A, Y, Γ, solver::BLR)
+    return A / Γ, Y
+end
+
+"""
+Apply a postprocessing step to the fitting results based on the solver used.
+"""
+function postprocess!(fit_results, Γ, solver::BLR)
+    fit_results["C"] = Γ \ fit_results["C"]
+
+    if solver.kwargs[:committee_size] > 0
+        fit_results["committee"] = Γ \ fit_results["committee"]
+    end
+
+    if solver.kwargs[:ret_covar]
+        fit_results["covar"] = Γ \ fit_results["covar"] / Γ
+    end
+
+    nothing
+end
 
 function solve_ls(A, Y, λ, Γ, solver = "LSQR"; niter = 10, inner_tol = 1e-3)
     # Note; this function was copied over from the original ACEhamiltonians/fit.jl file.
+    # Note; in newer versions of ACEfit, python-based solve functions are moved to /ext, which means
+    # in order to use them they need to be explicitly imported from ACEfit (probably with include(...))
 
     A = _preprocessA(A)
     Y = _preprocessY(Y)
-    
-    num = size(A)[2]
-    A = [A; λ*Γ]
-    Y = [Y; zeros(num)]
+    fit_results = Dict()
+
+    # TODO: write preprocess functions for other solvers?
+    if solver isa BLR
+       A, Y = preprocess(A, Y, Γ, solver)
+    else
+       num = size(A)[2]
+       A = [A; λ*Γ]
+       Y = [Y; zeros(num)]
+    end
+
     if solver == "QR"
-       return real(qr(A) \ Y)
+       fit_results["C"] = real(qr(A) \ Y)
     elseif solver == "LSQR"
        # The use of distributed arrays is still causing a memory leak. As such the following
        # code has been disabled until further notice.
@@ -79,18 +112,23 @@ function solve_ls(A, Y, λ, Γ, solver = "LSQR"; niter = 10, inner_tol = 1e-3)
        # res = real(IterativeSolvers.lsqr(Ad, Yd; atol = 1e-6, btol = 1e-6))
        # close(Ad), close(Yd)
        res = real(IterativeSolvers.lsqr(A, Y; atol = 1e-6, btol = 1e-6))
-       return res
-    elseif solver == "ARD"
-       return linear_solve(SKLEARN_ARD(;n_iter = niter, tol = inner_tol), A, Y)["C"]
-    elseif solver == "BRR"
-       return linear_solve(SKLEARN_BRR(;n_iter = niter, tol = inner_tol), A, Y)["C"]
+       fit_results["C"] = res
+    # elseif solver == "ARD"
+    #    merge!(fit_results, ACEfit.solve(SKLEARN_ARD(;max_iter = niter, tol = inner_tol), A, Y))
+    # elseif solver == "BRR"
+    #    merge!(fit_results, ACEfit.solve(SKLEARN_BRR(;max_iter = niter, tol = inner_tol), A, Y))
+    elseif solver isa BLR
+       merge!(fit_results, solve(solver, A, Y))
+       postprocess!(fit_results, Γ, solver)
     elseif solver == "RRQR"
        AP = A / I
        θP = pqrfact(A, rtol = inner_tol) \ Y
-       return I \ θP
+       fit_results["C"] = I \ θP
     elseif solver == "NaiveSolver"
-       return real((A'*A) \ (A'*Y))
+       fit_results["C"] = real((A'*A) \ (A'*Y))
     end
+
+    return fit_results
  
  end
 
@@ -236,15 +274,16 @@ function fit!(submodel::T₁, data::T₂; enable_mean::Bool=false, λ=1E-7, solv
     submodel.mean .= x̄
 
     # Solve the least squares problem and get the coefficients
-
-    submodel.coefficients .= collect(solve_ls(Φ, Y, λ, Γ, solver))
+    merge!(submodel.fit_results, solve_ls(Φ, Y, λ, Γ, solver))
+    submodel.coefficients .= collect(submodel.fit_results["C"])
 
     @static if DUAL_BASIS_MODEL
         if T₁<:AnisoSubModel
             Γ = Diagonal(scaling(submodel.basis_i, 2))
             Φ, Y, x̄ = _assemble_ls(submodel.basis_i, data', enable_mean)
             submodel.mean_i .= x̄
-            submodel.coefficients_i .= collect(solve_ls(Φ, Y, λ, Γ, solver))
+            merge!(submodel.fit_results_i, solve_ls(Φ, Y, λ, Γ, solver))
+            submodel.coefficients_i .= collect(submodel.fit_results_i["C"])
         end
     end
 

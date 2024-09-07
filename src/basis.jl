@@ -58,12 +58,12 @@ blocks and is hence called SubModel
 - `mean::Matrix`:
 
 """
-struct SubModel{T₁<:SymmetricBasis, T₂, T₃, T₄, T₅} <: AHSubModel
+struct SubModel{T₁<:SymmetricBasis, T₂, T₃, T₄} <: AHSubModel
     basis::T₁
     id::T₂
     coefficients::T₃
     mean::T₄
-    fit_results::T₅
+    fit_results
 
     function SubModel(basis, id)
         t = ACE.valtype(basis)
@@ -91,7 +91,7 @@ Another linear ACE model for modelling symmetry variant interactions.
 - `mean_i::Matrix`:
 
 """
-struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T₅, T₆, T₇, T₈, T₉} <: AHSubModel
+struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T₅, T₆, T₇} <: AHSubModel
     basis::T₁
     basis_i::T₂
     id::T₃
@@ -99,15 +99,15 @@ struct AnisoSubModel{T₁<:SymmetricBasis, T₂<:SymmetricBasis, T₃, T₄, T�
     coefficients_i::T₅
     mean::T₆
     mean_i::T₇
-    fit_results::T₈
-    fit_results_i::T₉
+    fit_results
+    fit_results_i
 
     function AnisoSubModel(basis, basis_i, id)
         t₁, t₂ = ACE.valtype(basis), ACE.valtype(basis_i)
         F = real(t₁.parameters[5])
         AnisoSubModel(
             basis, basis_i,  id, zeros(F, length(basis)), zeros(F, length(basis_i)),
-            zeros(F, size(zero(t₁))), zeros(F, size(zero(t₂))), Dict(), Dict())
+            zeros(F, size(zero(t₁))), zeros(F, size(zero(t₂))))
     end
 
     function AnisoSubModel(basis::T₁, basis_i::T₂, id::T₃, coefficients::T₄, coefficients_i::T₅, mean::T₆, mean_i::T₇) where {T₁, T₂, T₃, T₄, T₅, T₆, T₇}
